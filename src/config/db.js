@@ -9,16 +9,15 @@ export async function initDB() {
     await sql`
       CREATE TABLE IF NOT EXISTS categories (
         id SERIAL PRIMARY KEY,
-        name TEXT NOT NULL
+        name TEXT NOT NULL UNIQUE
       );
     `
 
     await sql`
       CREATE TABLE IF NOT EXISTS products (
         id SERIAL PRIMARY KEY,
-        name TEXT NOT NULL,
-        image TEXT,
-        category_id INT REFERENCES categories(id)
+        name TEXT NOT NULL UNIQUE,
+        category_id INTEGER REFERENCES categories(id) ON DELETE CASCADE
       );
     `
 

@@ -5,6 +5,7 @@ import {
   patchCheckProduct,
   updateProductQuantity,
   postProductToCurrentList,
+  deleteProductFromCurrentList
 } from '../controllers/listController.js'
 import { getProducts } from '../controllers/productController.js'
 
@@ -15,6 +16,7 @@ router.get('/lists/current', getCurrentList)
 router.patch('/lists/current/:productId', patchCheckProduct)
 router.patch('/lists/current/:productId/quantity', updateProductQuantity)
 router.post('/lists/current/:productId', postProductToCurrentList)
+router.delete('/lists/current/:productId', deleteProductFromCurrentList)
 
 router.get('/products', getProducts)
 

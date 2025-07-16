@@ -4,7 +4,7 @@ import { sql } from '../config/db.js'
 export async function getProducts(req, res) {
   try {
     const products = await sql`
-      SELECT products.id, products.name, products.image, category_id, categories.name AS category
+      SELECT products.id, products.name, category_id, categories.name AS category
       FROM products
       JOIN categories ON products.category_id = categories.id
       ORDER BY products.name;
