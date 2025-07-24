@@ -1,9 +1,9 @@
 import { sql } from '../config/db.js'
 
-export async function getCurrentListData() {
+export async function getCurrentListData(userId) {
   const [list] = await sql`
     SELECT * FROM shopping_lists
-    WHERE completed = false
+    WHERE completed = false AND user_id = ${userId}
     LIMIT 1;
   `
   // if (!list) return res.status(404).json({ error: 'No active list found' })
@@ -16,7 +16,6 @@ export async function getCurrentListData() {
       sli.quantity,
       p.id AS product_id,
       p.name,
-      p.image,
       c.name AS category
     FROM shopping_list_items sli
     JOIN products p ON sli.product_id = p.id
@@ -31,9 +30,10 @@ export async function getCurrentListData() {
 // GET /lists/completed
 export async function getCompletedLists(req, res) {
   try {
+    const userId = req.userId
     const lists = await sql`
       SELECT * FROM shopping_lists
-      WHERE completed = true
+      WHERE completed = true AND user_id = ${userId}
       ORDER BY date DESC;
     `
     res.json(lists)
@@ -45,9 +45,21 @@ export async function getCompletedLists(req, res) {
 
 // GET /lists/current
 export async function getCurrentList(req, res) {
+  const userId = req.userId
   try {
-    const list = await getCurrentListData()
-    if (!list) return res.status(404).json({ error: 'No active list found' })
+    const list = await getCurrentListData(userId)
+
+    // If not found, create a new one
+    if (!list) {
+      const today = new Date().toISOString().split('T')[0]
+      const inserted = await sql`
+        INSERT INTO shopping_lists (date, market, completed, user_id)
+        VALUES (${today}, 'Default Market', false, ${userId})
+        RETURNING *;
+      `
+      list = inserted[0]
+    }
+    
     res.json(list)
   } catch (err) {
     console.error(err)
@@ -58,11 +70,12 @@ export async function getCurrentList(req, res) {
 // PATCH /lists/current/:productId
 export async function patchCheckProduct(req, res) {
   const productId = Number(req.params.productId)
+  const userId = req.userId
 
   try {
     const [list] = await sql`
       SELECT * FROM shopping_lists
-      WHERE completed = false
+      WHERE completed = false AND user_id = ${userId}
       LIMIT 1;
     `
     if (!list) {
@@ -83,7 +96,7 @@ export async function patchCheckProduct(req, res) {
       WHERE id = ${item.id};
     `
 
-    const fullList = await getCurrentListData()
+    const fullList = await getCurrentListData(userId)
     res.json(fullList)
 
   } catch (err) {
@@ -96,6 +109,7 @@ export async function patchCheckProduct(req, res) {
 export async function updateProductQuantity(req, res) {
   const productId = Number(req.params.productId)
   const { quantity } = req.body
+  const userId = req.userId
 
   // Validate input: quantity must be a non-negative integer
   if (!Number.isInteger(quantity) || quantity < 0) {
@@ -106,7 +120,7 @@ export async function updateProductQuantity(req, res) {
     // Fetch the current active (not completed) shopping list
     const [list] = await sql`
       SELECT * FROM shopping_lists
-      WHERE completed = false
+      WHERE completed = false AND user_id = ${userId}
       LIMIT 1;
     `
     if (!list) {
@@ -138,7 +152,7 @@ export async function updateProductQuantity(req, res) {
     }
 
     // Return the entire updated current list to sync frontend
-    const fullList = await getCurrentListData()
+    const fullList = await getCurrentListData(userId)
     res.json(fullList)
 
   } catch (err) {
@@ -151,6 +165,7 @@ export async function updateProductQuantity(req, res) {
 export async function postProductToCurrentList(req, res) {
   const productId = Number(req.params.productId)
   const { quantity = 1 } = req.body
+  const userId = req.userId
 
   if (!Number.isInteger(quantity) || quantity < 1) {
     return res.status(400).json({ error: 'Quantity must be a positive integer' })
@@ -160,7 +175,7 @@ export async function postProductToCurrentList(req, res) {
     // Verifica se já existe lista atual
     let [list] = await sql`
       SELECT * FROM shopping_lists
-      WHERE completed = false
+      WHERE completed = false AND user_id = ${userId}
       LIMIT 1;
     `
 
@@ -168,8 +183,8 @@ export async function postProductToCurrentList(req, res) {
     if (!list) {
       const today = new Date().toISOString().split('T')[0]
       const inserted = await sql`
-        INSERT INTO shopping_lists (date, market, completed)
-        VALUES (${today}, 'Default Market', false)
+        INSERT INTO shopping_lists (date, market, completed, user_id)
+        VALUES (${today}, 'Default Market', false, ${userId})
         RETURNING *;
       `
       list = inserted[0]
@@ -191,7 +206,7 @@ export async function postProductToCurrentList(req, res) {
     `
 
     // Retorna lista atualizada
-    const fullList = await getCurrentListData()
+    const fullList = await getCurrentListData(userId)
     res.status(201).json(fullList)
 
   } catch (err) {
@@ -203,12 +218,13 @@ export async function postProductToCurrentList(req, res) {
 // DELETE /lists/current/:productId
 export async function deleteProductFromCurrentList(req, res) {
   const productId = Number(req.params.productId)
+  const userId = req.userId
 
   try {
     // Busca a lista atual (não concluída)
     const [list] = await sql`
       SELECT * FROM shopping_lists
-      WHERE completed = false
+      WHERE completed = false AND user_id = ${userId}
       LIMIT 1;
     `
     if (!list) {
@@ -226,11 +242,42 @@ export async function deleteProductFromCurrentList(req, res) {
     }
 
     // Retorna a lista atualizada completa
-    const fullList = await getCurrentListData()
+    const fullList = await getCurrentListData(userId)
     res.json(fullList)
 
   } catch (err) {
     console.error(err)
     res.status(500).json({ error: 'Failed to delete product' })
+  }
+}
+
+// PATCH /lists/current/complete
+export async function completeCurrentList(req, res) {
+  const userId = Number(req.userId)
+  if (!Number.isInteger(userId)) {
+    return res.status(401).json({ error: 'Invalid or missing token' })
+  }
+  try {
+    // 🔍 Busca a lista ativa do usuário
+    const [list] = await sql`
+      SELECT * FROM shopping_lists
+      WHERE completed = false AND user_id = ${userId}
+      LIMIT 1;
+    `
+    if (!list) {
+      return res.status(404).json({ error: 'No active list to complete' })
+    }
+
+    // ✅ Marca como concluída
+    await sql`
+      UPDATE shopping_lists
+      SET completed = true
+      WHERE id = ${list.id};
+    `
+
+    res.json({ message: 'List marked as completed', listId: list.id })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: 'Failed to complete the list' })
   }
 }
