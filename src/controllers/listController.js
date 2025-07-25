@@ -47,7 +47,7 @@ export async function getCompletedLists(req, res) {
 export async function getCurrentList(req, res) {
   const userId = req.userId
   try {
-    const list = await getCurrentListData(userId)
+    let list = await getCurrentListData(userId)
 
     // If not found, create a new one
     if (!list) {
