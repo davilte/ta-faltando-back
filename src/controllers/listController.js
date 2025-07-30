@@ -11,10 +11,9 @@ export async function getCurrentListData(userId) {
 
   const items = await sql`
     SELECT 
-      sli.id,
       sli.checked,
       sli.quantity,
-      p.id AS product_id,
+      p.id AS id,
       p.name,
       c.name AS category
     FROM shopping_list_items sli
@@ -31,17 +30,45 @@ export async function getCurrentListData(userId) {
 export async function getCompletedLists(req, res) {
   try {
     const userId = req.userId
+
+    // Busca todas as listas concluídas do usuário
     const lists = await sql`
       SELECT * FROM shopping_lists
       WHERE completed = true AND user_id = ${userId}
       ORDER BY date DESC;
     `
-    res.json(lists)
+
+    // Para cada lista, buscar os itens
+    const listsWithItems = await Promise.all(
+      lists.map(async (list) => {
+        const items = await sql`
+          SELECT 
+            sli.checked,
+            sli.quantity,
+            p.id AS id,
+            p.name,
+            c.name AS category
+          FROM shopping_list_items sli
+          JOIN products p ON sli.product_id = p.id
+          JOIN categories c ON p.category_id = c.id
+          WHERE sli.list_id = ${list.id}
+          ORDER BY p.name;
+        `
+
+        return {
+          ...list,
+          items,
+        }
+      })
+    )
+
+    res.json(listsWithItems)
   } catch (err) {
     console.error(err)
     res.status(500).json({ error: 'Failed to fetch completed lists' })
   }
 }
+
 
 // GET /lists/current
 export async function getCurrentList(req, res) {
