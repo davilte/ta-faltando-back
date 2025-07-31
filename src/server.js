@@ -2,11 +2,13 @@ import express from 'express'
 import dotenv from 'dotenv'
 import { initDB } from './config/db.js'
 import routes from './routes/index.js'
+import cors from 'cors'
 
 dotenv.config()
 const app = express()
 const PORT = process.env.PORT || 5001
 
+app.use(cors()) // Enable CORS
 app.use(express.json()) // Parse JSON bodies
 app.use('/api/v1', routes) // Usar rotas externas
 
