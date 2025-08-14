@@ -7,26 +7,32 @@ import {
   postProductToCurrentList,
   deleteProductFromCurrentList,
   completeCurrentList,
-  updateListName
+  updateCurrentListName
 } from '../controllers/listController.js'
 import { getProducts } from '../controllers/productController.js'
 import { register, login } from '../controllers/authController.js'
 import { authenticateToken } from '../middleware/auth.js'
+
 const router = express.Router()
 
-
+// Auth
 router.post('/register', register)
 router.post('/login', login)
 
-router.get('/lists/completed', authenticateToken, getCompletedLists)
-router.get('/lists/current', authenticateToken, getCurrentList)
-router.post('/lists/current/:productId', authenticateToken, postProductToCurrentList)
-router.patch('/lists/current/:productId', authenticateToken, patchCheckProduct)
-router.patch('/lists/current/:productId/quantity', authenticateToken, updateProductQuantity)
-router.delete('/lists/current/:productId', authenticateToken, deleteProductFromCurrentList)
+// ----- List-wide endpoints -----
+router.patch('/lists/current/name', authenticateToken, updateCurrentListName)
 router.patch('/lists/complete', authenticateToken, completeCurrentList)
-router.patch('/lists/:listId/name', authenticateToken, updateListName)
 
+router.get('/lists/current', authenticateToken, getCurrentList)
+router.get('/lists/completed', authenticateToken, getCompletedLists)
+
+// ----- Item endpoints -----
+router.post('/lists/current/:productId(\\d+)', authenticateToken, postProductToCurrentList)
+router.patch('/lists/current/:productId(\\d+)', authenticateToken, patchCheckProduct)
+router.patch('/lists/current/:productId(\\d+)/quantity', authenticateToken, updateProductQuantity)
+router.delete('/lists/current/:productId(\\d+)', authenticateToken, deleteProductFromCurrentList)
+
+// Public products (or proteja se preferir)
 router.get('/products', getProducts)
 
 export default router

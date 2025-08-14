@@ -309,10 +309,9 @@ export async function completeCurrentList(req, res) {
   }
 }
 
-// PATCH /lists/:listId/name
-export async function updateListName(req, res) {
+// PATCH /lists/current/name
+export async function updateCurrentListName(req, res) {
   const userId = req.userId
-  const listId = Number(req.params.listId)
   const { market } = req.body
 
   // Validate input
@@ -321,29 +320,30 @@ export async function updateListName(req, res) {
   }
 
   try {
-    // Ensure list belongs to the user
+    // Find current active list for this user
     const [list] = await sql`
       SELECT * FROM shopping_lists
-      WHERE id = ${listId} AND user_id = ${userId};
+      WHERE completed = false AND user_id = ${userId}
+      LIMIT 1;
     `
     if (!list) {
-      return res.status(404).json({ error: 'List not found' })
+      return res.status(404).json({ error: 'No active list found' })
     }
 
-    // Update list name
+    // Update market name
     await sql`
       UPDATE shopping_lists
       SET market = ${market.trim()}
-      WHERE id = ${listId};
+      WHERE id = ${list.id};
     `
 
     // Return updated list
     const [updated] = await sql`
       SELECT * FROM shopping_lists
-      WHERE id = ${listId};
+      WHERE id = ${list.id};
     `
     res.json(updated)
-    
+
   } catch (err) {
     console.error(err)
     res.status(500).json({ error: 'Failed to update list name' })
