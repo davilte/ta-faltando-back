@@ -6,7 +6,8 @@ import {
   updateProductQuantity,
   postProductToCurrentList,
   deleteProductFromCurrentList,
-  completeCurrentList
+  completeCurrentList,
+  updateListName
 } from '../controllers/listController.js'
 import { getProducts } from '../controllers/productController.js'
 import { register, login } from '../controllers/authController.js'
@@ -24,6 +25,7 @@ router.patch('/lists/current/:productId', authenticateToken, patchCheckProduct)
 router.patch('/lists/current/:productId/quantity', authenticateToken, updateProductQuantity)
 router.delete('/lists/current/:productId', authenticateToken, deleteProductFromCurrentList)
 router.patch('/lists/complete', authenticateToken, completeCurrentList)
+router.patch('/lists/:listId/name', authenticateToken, updateListName)
 
 router.get('/products', getProducts)
 

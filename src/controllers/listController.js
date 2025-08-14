@@ -308,3 +308,44 @@ export async function completeCurrentList(req, res) {
     res.status(500).json({ error: 'Failed to complete the list' })
   }
 }
+
+// PATCH /lists/:listId/name
+export async function updateListName(req, res) {
+  const userId = req.userId
+  const listId = Number(req.params.listId)
+  const { market } = req.body
+
+  // Validate input
+  if (!market || typeof market !== 'string' || market.trim() === '') {
+    return res.status(400).json({ error: 'Market name must be a non-empty string' })
+  }
+
+  try {
+    // Ensure list belongs to the user
+    const [list] = await sql`
+      SELECT * FROM shopping_lists
+      WHERE id = ${listId} AND user_id = ${userId};
+    `
+    if (!list) {
+      return res.status(404).json({ error: 'List not found' })
+    }
+
+    // Update list name
+    await sql`
+      UPDATE shopping_lists
+      SET market = ${market.trim()}
+      WHERE id = ${listId};
+    `
+
+    // Return updated list
+    const [updated] = await sql`
+      SELECT * FROM shopping_lists
+      WHERE id = ${listId};
+    `
+    res.json(updated)
+    
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: 'Failed to update list name' })
+  }
+}
